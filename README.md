@@ -26,22 +26,18 @@
 
 ## 🛠️ Installation
 ```bash
-git clone https://github.com/yourname/terminal-radio
-cd terminal-radio
-go build -o radio
-./radio
 ```
 
 ## 🧭 Controls
 
-| Keys  | Action |
-|-------|--------:|
-| Tab   |      Toggle search bar | 
-| Enter |      Search or play selected station |
-| S     |      Stop playback | 
-| 1     |      Sort by name |     
-| 2     |      Sort by bitrate | 
-| 3     |      Sort by country |
+| Keys        | Action |
+|-------------|--------:|
+| Tab         |      Toggle search bar | 
+| Enter       |      Search or play selected station |
+| s           |      Stop playback | 
+| 1           |      Sort by name |     
+| 2           |      Sort by bitrate | 
+| 3           |      Sort by country |
 | Esc, Ctrl+C |      Quit |     
 
 
