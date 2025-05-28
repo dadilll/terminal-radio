@@ -26,6 +26,9 @@
 
 ## 🛠️ Installation
 ```bash
+git clone https://github.com/dadilll/terminal-radio.git
+make build
+make run
 ```
 
 ## 🧭 Controls
