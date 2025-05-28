@@ -1,8 +1,0 @@
-{"level":"info","time":1748344920,"message":"Logger initialized"}
-{"level":"info","url":"https://stream.rockantenne.de/alternative/stream/mp3","time":1748344926,"message":"started playing"}
-{"level":"debug","time":1748344942,"message":"player stopped for restart"}
-{"level":"info","time":1748344942,"message":"player stopped"}
-{"level":"info","url":"https://rogers-hls.leanstream.co/rogers/nor1019.stream/icy?environment=tunein&args=tunein_01","time":1748344942,"message":"started playing"}
-{"level":"debug","time":1748344948,"message":"player stopped for restart"}
-{"level":"info","time":1748344948,"message":"player stopped"}
-{"level":"info","url":"http://79.120.77.11:8000/punkru","time":1748344948,"message":"started playing"}

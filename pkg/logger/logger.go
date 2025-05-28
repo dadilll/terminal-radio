@@ -20,11 +20,11 @@ func Init() {
 		panic("unable to create logs directory: " + err.Error())
 	}
 
-	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
 		panic("unable to open log file: " + err.Error())
 	}
 
-	multi := io.MultiWriter(file) // ← можно добавить os.Stdout, если хочешь лог и туда
+	multi := io.MultiWriter(file)
 	Log = zerolog.New(multi).With().Timestamp().Logger()
 }

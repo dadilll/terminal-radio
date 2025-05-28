@@ -35,10 +35,8 @@ func (p *Player) Play(ctx context.Context, streamURL string) error {
 		oldCmd := p.cmd
 		p.mu.Unlock()
 
-		// Останавливаем текущий поток за пределами lock
 		_ = oldCmd.Process.Kill()
 
-		// Ждём завершения горутины из предыдущего p.cmd.Wait()
 		p.wg.Wait()
 
 		p.mu.Lock()
