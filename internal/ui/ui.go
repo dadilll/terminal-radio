@@ -31,7 +31,7 @@ func (i StationItem) Title() string {
 	if i.Favorite {
 		title = "★ " + title
 	}
-	return title
+	return truncate(title, 30)
 }
 
 func (i StationItem) Description() string {
@@ -50,6 +50,16 @@ const (
 	SortByBitrate
 	SortByCountry
 )
+
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	if max <= 3 {
+		return s[:max]
+	}
+	return s[:max-3] + "..."
+}
 
 type UIModel struct {
 	favoriteStations []api.Station
@@ -72,17 +82,48 @@ type UIModel struct {
 	lastQuery        string
 	currentSort      SortMode
 	sortLabelStyle   lipgloss.Style
+	Width            int
 }
 
 var (
-	titleStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFA500"))
-	placeholder     = lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Italic(true)
-	errorStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
-	loadingStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFFF"))
-	nowPlayingStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00FF00"))
-	helpStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#888888")).Italic(true)
-	positionStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#AAAAAA")).Italic(true)
-	tagColors       = []lipgloss.Color{"#FF6B6B", "#6BCB77", "#4D96FF", "#FFD93D", "#C77DFF"}
+	titleStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#FFA500")).
+		Padding(0, 2).
+		Background(lipgloss.Color("#1B1B1B"))
+
+	loadingStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#00FFFF")).
+		Bold(true)
+
+	errorStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FF3333")).
+		Bold(true)
+
+	placeholder = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#666666")).
+		Italic(true)
+
+	nowPlayingStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#00FF00")).
+		Padding(0, 1).
+		Background(lipgloss.Color("#0B3D0B"))
+
+	helpStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#888888")).
+		Italic(true)
+
+	positionStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#AAAAAA")).
+		Italic(true)
+
+	sortLabelStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#999999")).
+		Italic(true).
+		Padding(0, 1)
+
+	tagColors = []lipgloss.Color{"#FF6B6B", "#6BCB77", "#4D96FF", "#FFD93D", "#C77DFF"}
 )
 
 func NewUIModel(client *api.Client, player *player.Player, storage *storage.Storage) *UIModel {
@@ -115,7 +156,7 @@ func NewUIModel(client *api.Client, player *player.Player, storage *storage.Stor
 		lastInputTime:  time.Now(),
 		searchVisible:  false,
 		currentSort:    SortByBitrate,
-		sortLabelStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("#999999")).Italic(true),
+		sortLabelStyle: sortLabelStyle,
 	}
 }
 
@@ -184,12 +225,17 @@ func (m *UIModel) showFavorites() {
 			favStations = append(favStations, s)
 		}
 	}
+	m.favoriteStations = favStations
 	m.sortStations(&favStations)
 
 	var items []list.Item
 	for _, s := range favStations {
 		playing := m.playing != nil && m.playing.URL == s.URL
-		items = append(items, StationItem{Station: s, Playing: playing})
+		items = append(items, StationItem{
+			Station:  s,
+			Playing:  playing,
+			Favorite: true,
+		})
 	}
 	m.filteredItems = items
 	m.list.SetItems(items)
@@ -284,7 +330,8 @@ func (m *UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
-		m.list.SetSize(msg.Width, msg.Height-10)
+		m.Width = msg.Width
+		m.list.SetSize(msg.Width-32, msg.Height-10)
 
 	case searchMsg:
 		m.loading = false
@@ -311,41 +358,110 @@ func (m *UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *UIModel) View() string {
-	var b strings.Builder
+	var mainContent strings.Builder
 
-	if m.favoritesMode {
-		b.WriteString(titleStyle.Render("🌟 Favorites") + "\n")
-	} else if m.searchVisible {
-		b.WriteString(titleStyle.Render("🔍 Search stations") + "\n")
-		b.WriteString(m.textinput.View() + "\n\n")
+	if m.searchVisible {
+		modalStyle := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#FFA500")).
+			Padding(1, 2).
+			Width(60).
+			Align(lipgloss.Center)
+
+		searchBox := titleStyle.Render("🔍 Search stations") + "\n" + m.textinput.View()
+
+		modal := modalStyle.Render(searchBox)
+
+		return lipgloss.Place(m.Width, 10, lipgloss.Center, lipgloss.Center, modal)
 	}
+
+	var header string
+	if m.favoritesMode {
+		header = "🌟 Favorites"
+	} else {
+		header = "📻 Radio Stations"
+	}
+
+	mainContent.WriteString(titleStyle.Render(header) + "\n")
 
 	if m.loading {
-		b.WriteString(loadingStyle.Render(m.spinner.View()+" Loading stations...") + "\n\n")
+		mainContent.WriteString(loadingStyle.Render(m.spinner.View()+" Loading stations...") + "\n")
 	} else if m.err != nil {
-		b.WriteString(errorStyle.Render(fmt.Sprintf("Error: %v", m.err)) + "\n\n")
+		mainContent.WriteString(errorStyle.Render(fmt.Sprintf("Error: %v", m.err)) + "\n")
 	} else if len(m.filteredItems) == 0 {
-		b.WriteString(placeholder.Render("No stations found. Enter search and press Enter.") + "\n\n")
+		mainContent.WriteString(placeholder.Render("No stations found. Enter search and press Enter.") + "\n")
 	} else {
-		sortLabel := fmt.Sprintf("Sorted by: %s", map[SortMode]string{
-			SortByName:    "Name (1)",
-			SortByBitrate: "Bitrate (2)",
-			SortByCountry: "Country (3)",
-		}[m.currentSort])
-		b.WriteString(m.sortLabelStyle.Render(sortLabel) + "\n")
-		b.WriteString(m.list.View() + "\n")
-		b.WriteString(positionStyle.Render(fmt.Sprintf("Station %d of %d", m.list.Index()+1, len(m.filteredItems))) + "\n\n")
+		sortLabels := map[SortMode]string{
+			SortByName:    "🅰️ Name (1)",
+			SortByBitrate: "🎵 Bitrate (2)",
+			SortByCountry: "🌍 Country (3)",
+		}
+		sortLabel := fmt.Sprintf("Sorted by: %s", sortLabels[m.currentSort])
+		mainContent.WriteString(sortLabelStyle.Padding(0, 1).Render(sortLabel) + "\n")
+
+		listView := lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder()).
+			Padding(1, 2).
+			Width(m.list.Width()).
+			Height(m.list.Height()).
+			Render(m.list.View())
+		mainContent.WriteString(listView + "\n")
+
+		mainContent.WriteString(positionStyle.Render(fmt.Sprintf("Station %d of %d", m.list.Index()+1, len(m.filteredItems))) + "\n")
 	}
 
+	contentRow := lipgloss.NewStyle().
+		Padding(0, 2).
+		BorderTop(true).
+		BorderLeft(true).
+		BorderRight(true).
+		BorderForeground(lipgloss.Color("#666666")).
+		Render(mainContent.String())
+
+	var footer string
 	if m.playing != nil {
-		b.WriteString(nowPlayingStyle.Render(fmt.Sprintf("▶️ Now playing: %s (%s)", m.playing.Name, m.playing.URL)) + "\n\n")
+		favIcon := "☆"
+		if m.storage.IsFavorite(m.playing.URL) {
+			favIcon = "⭐"
+		}
+
+		playerInfo := fmt.Sprintf(
+			"▶️  🎧 %s (%s) • %dkbps • Favorite: %s",
+			m.playing.Name,
+			m.playing.Country,
+			m.playing.Bitrate,
+			favIcon,
+		)
+
+		footerStyle := lipgloss.NewStyle().
+			BorderTop(true).
+			BorderForeground(lipgloss.Color("#5FD3F3")).
+			Padding(1, 2).
+			Width(m.Width).
+			Foreground(lipgloss.Color("#FFFFFF")).
+			Background(lipgloss.AdaptiveColor{
+				Light: "#A6CEE3",
+				Dark:  "#1B2B34",
+			})
+
+		footer = footerStyle.Render(playerInfo)
+	} else {
+		footer = lipgloss.NewStyle().
+			BorderTop(true).
+			BorderForeground(lipgloss.Color("#666666")).
+			Padding(1, 2).
+			Width(m.Width).
+			Render("⏸️  No station playing")
 	}
 
-	b.WriteString(helpStyle.Render("Tab: toggle search • Enter: play/search • s: stop • a: toggle favorite • z: show favorites • 1/2/3: sort • Esc/Ctrl+C: quit") + "\n")
-	return b.String()
-}
+	help := helpStyle.Render("Tab: toggle search • Enter: play/search • s: stop • a: toggle favorite • z: show favorites • 1/2/3: sort • Esc/Ctrl+C: quit")
 
-// ===== Вспомогательная функция для цветных тегов =====
+	return lipgloss.JoinVertical(lipgloss.Left,
+		contentRow,
+		footer,
+		help,
+	)
+}
 
 func colorTags(tags []string) string {
 	var b strings.Builder
@@ -354,11 +470,12 @@ func colorTags(tags []string) string {
 		if t == "" {
 			continue
 		}
-		style := lipgloss.NewStyle().Foreground(tagColors[i%len(tagColors)])
-		b.WriteString(style.Render("#" + t))
-		if i < len(tags)-1 {
-			b.WriteString(" ")
-		}
+		style := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFFFFF")).
+			Background(tagColors[i%len(tagColors)]).
+			Padding(0, 1).
+			MarginRight(1)
+		b.WriteString(style.Render(t))
 	}
 	return b.String()
 }
