@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"radio/internal/api"
 	"radio/internal/player"
+	"radio/internal/storage"
 	"sort"
 	"strings"
 	"time"
@@ -17,14 +18,18 @@ import (
 )
 
 type StationItem struct {
-	Station api.Station
-	Playing bool
+	Station  api.Station
+	Playing  bool
+	Favorite bool
 }
 
 func (i StationItem) Title() string {
 	title := i.Station.Name
 	if i.Playing {
 		title = "🎵 " + title
+	}
+	if i.Favorite {
+		title = "★ " + title
 	}
 	return title
 }
@@ -47,23 +52,26 @@ const (
 )
 
 type UIModel struct {
-	list           list.Model
-	textinput      textinput.Model
-	spinner        spinner.Model
-	allStations    []api.Station
-	filteredItems  []list.Item
-	loading        bool
-	err            error
-	playing        *api.Station
-	ctx            context.Context
-	cancel         context.CancelFunc
-	client         *api.Client
-	player         *player.Player
-	lastInputTime  time.Time
-	searchVisible  bool
-	lastQuery      string
-	currentSort    SortMode
-	sortLabelStyle lipgloss.Style
+	favoriteStations []api.Station
+	storage          *storage.Storage
+	favoritesMode    bool
+	list             list.Model
+	textinput        textinput.Model
+	spinner          spinner.Model
+	allStations      []api.Station
+	filteredItems    []list.Item
+	loading          bool
+	err              error
+	playing          *api.Station
+	ctx              context.Context
+	cancel           context.CancelFunc
+	client           *api.Client
+	player           *player.Player
+	lastInputTime    time.Time
+	searchVisible    bool
+	lastQuery        string
+	currentSort      SortMode
+	sortLabelStyle   lipgloss.Style
 }
 
 var (
@@ -77,7 +85,7 @@ var (
 	tagColors       = []lipgloss.Color{"#FF6B6B", "#6BCB77", "#4D96FF", "#FFD93D", "#C77DFF"}
 )
 
-func NewUIModel(client *api.Client, player *player.Player) *UIModel {
+func NewUIModel(client *api.Client, player *player.Player, storage *storage.Storage) *UIModel {
 	ti := textinput.New()
 	ti.Placeholder = "Search stations"
 	ti.CharLimit = 100
@@ -95,6 +103,8 @@ func NewUIModel(client *api.Client, player *player.Player) *UIModel {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &UIModel{
+		storage:        storage,
+		favoritesMode:  false,
 		list:           l,
 		textinput:      ti,
 		spinner:        sp,
@@ -140,7 +150,11 @@ func (m *UIModel) filterStations(query string) {
 	var items []list.Item
 	for _, s := range filtered {
 		playing := m.playing != nil && m.playing.URL == s.URL
-		items = append(items, StationItem{Station: s, Playing: playing})
+		items = append(items, StationItem{
+			Station:  s,
+			Playing:  playing,
+			Favorite: m.storage.IsFavorite(s.URL),
+		})
 	}
 	m.filteredItems = items
 	m.list.SetItems(items)
@@ -161,6 +175,24 @@ func (m *UIModel) sortStations(stations *[]api.Station) {
 			return (*stations)[i].Country < (*stations)[j].Country
 		})
 	}
+}
+
+func (m *UIModel) showFavorites() {
+	var favStations []api.Station
+	for _, s := range m.allStations {
+		if m.storage.IsFavorite(s.URL) {
+			favStations = append(favStations, s)
+		}
+	}
+	m.sortStations(&favStations)
+
+	var items []list.Item
+	for _, s := range favStations {
+		playing := m.playing != nil && m.playing.URL == s.URL
+		items = append(items, StationItem{Station: s, Playing: playing})
+	}
+	m.filteredItems = items
+	m.list.SetItems(items)
 }
 
 func (m *UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -191,7 +223,7 @@ func (m *UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					cmds = append(cmds, searchStations(m.ctx, query))
 					m.list.SetItems([]list.Item{})
 				}
-			} else if len(m.list.Items()) > 0 {
+			} else if !m.searchVisible && len(m.list.Items()) > 0 {
 				i, ok := m.list.SelectedItem().(StationItem)
 				if ok {
 					_ = m.player.Stop()
@@ -202,6 +234,29 @@ func (m *UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.playing = &i.Station
 					m.filterStations(m.textinput.Value())
 				}
+			}
+
+		case "a":
+			if item, ok := m.list.SelectedItem().(StationItem); ok {
+				id := item.Station.URL
+				if m.storage.IsFavorite(id) {
+					_ = m.storage.RemoveFavorite(id)
+				} else {
+					_ = m.storage.AddFavorite(id)
+				}
+				if m.favoritesMode {
+					m.showFavorites()
+				} else {
+					m.filterStations(m.textinput.Value())
+				}
+			}
+
+		case "z":
+			m.favoritesMode = !m.favoritesMode
+			if m.favoritesMode {
+				m.showFavorites()
+			} else {
+				m.filterStations(m.textinput.Value())
 			}
 
 		case "s":
@@ -258,7 +313,9 @@ func (m *UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *UIModel) View() string {
 	var b strings.Builder
 
-	if m.searchVisible {
+	if m.favoritesMode {
+		b.WriteString(titleStyle.Render("🌟 Favorites") + "\n")
+	} else if m.searchVisible {
 		b.WriteString(titleStyle.Render("🔍 Search stations") + "\n")
 		b.WriteString(m.textinput.View() + "\n\n")
 	}
@@ -284,7 +341,7 @@ func (m *UIModel) View() string {
 		b.WriteString(nowPlayingStyle.Render(fmt.Sprintf("▶️ Now playing: %s (%s)", m.playing.Name, m.playing.URL)) + "\n\n")
 	}
 
-	b.WriteString(helpStyle.Render("Tab: toggle search • Enter: play/search • s: stop • 1/2/3: sort • Esc/Ctrl+C: quit") + "\n")
+	b.WriteString(helpStyle.Render("Tab: toggle search • Enter: play/search • s: stop • a: toggle favorite • z: show favorites • 1/2/3: sort • Esc/Ctrl+C: quit") + "\n")
 	return b.String()
 }
 
