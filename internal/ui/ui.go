@@ -62,6 +62,9 @@ func truncate(s string, max int) string {
 }
 
 type UIModel struct {
+	isPlaying        bool
+	playbackProgress float64
+	playerTicker     *time.Ticker
 	favoriteStations []api.Station
 	storage          *storage.Storage
 	favoritesMode    bool
@@ -331,7 +334,14 @@ func (m *UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
-		m.list.SetSize(msg.Width-32, msg.Height-10)
+
+		reservedHeight := 1 + 1 + 1 + 3 + 1 + 2
+		availableHeight := msg.Height - reservedHeight
+		if availableHeight < 5 {
+			availableHeight = 5
+		}
+
+		m.list.SetSize(msg.Width-32, availableHeight)
 
 	case searchMsg:
 		m.loading = false
@@ -357,9 +367,64 @@ func (m *UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m *UIModel) View() string {
-	var mainContent strings.Builder
+func (m *UIModel) renderPlayer() string {
+	if m.playing == nil {
+		return lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder(), true).
+			BorderForeground(lipgloss.Color("#666666")).
+			Padding(1, 2).
+			Width(50).
+			Italic(true).
+			Align(lipgloss.Center).
+			Render("⏸️  No station playing")
+	}
 
+	const maxNameLen = 20
+	const maxCountryLen = 15
+
+	favIcon := "❌"
+	if m.storage.IsFavorite(m.playing.URL) {
+		favIcon = "⭐"
+	}
+
+	name := truncateText(m.playing.Name, maxNameLen)
+	country := truncateText(m.playing.Country, maxCountryLen)
+
+	nameStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Bold(true)
+	infoStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#C0C0C0")).Padding(0, 1)
+
+	nameCol := nameStyle.Render(fmt.Sprintf("▶️ %s", name))
+	countryCol := infoStyle.Render(fmt.Sprintf("🌍 %s", country))
+	bitrateCol := infoStyle.Render(fmt.Sprintf("🎵 %d kbps", m.playing.Bitrate))
+	favCol := infoStyle.Render(fmt.Sprintf("❤️ %s", favIcon))
+
+	separator := lipgloss.NewStyle().Foreground(lipgloss.Color("#555555")).Render(" | ")
+
+	playerContent := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		nameCol,
+		separator,
+		countryCol,
+		separator,
+		bitrateCol,
+		separator,
+		favCol,
+	)
+
+	playerStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder(), true).
+		BorderForeground(lipgloss.Color("#5FD3F3")).
+		Background(lipgloss.AdaptiveColor{
+			Light: "#1E90FF",
+			Dark:  "#0D1B2A",
+		}).
+		Padding(1, 3).
+		Width(lipgloss.Width(playerContent) + 6) // ширина по содержимому + отступы
+
+	return playerStyle.Render(playerContent)
+}
+
+func (m *UIModel) View() string {
 	if m.searchVisible {
 		modalStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -369,11 +434,12 @@ func (m *UIModel) View() string {
 			Align(lipgloss.Center)
 
 		searchBox := titleStyle.Render("🔍 Search stations") + "\n" + m.textinput.View()
-
 		modal := modalStyle.Render(searchBox)
 
 		return lipgloss.Place(m.Width, 10, lipgloss.Center, lipgloss.Center, modal)
 	}
+
+	var contentParts []string
 
 	var header string
 	if m.favoritesMode {
@@ -382,77 +448,29 @@ func (m *UIModel) View() string {
 		header = "📻 Radio Stations"
 	}
 
-	mainContent.WriteString(titleStyle.Render(header) + "\n")
+	contentParts = append(contentParts, titleStyle.Render(header))
 
 	if m.loading {
-		mainContent.WriteString(loadingStyle.Render(m.spinner.View()+" Loading stations...") + "\n")
+		contentParts = append(contentParts, loadingStyle.Render(m.spinner.View()+" Loading stations..."))
 	} else if m.err != nil {
-		mainContent.WriteString(errorStyle.Render(fmt.Sprintf("Error: %v", m.err)) + "\n")
+		contentParts = append(contentParts, errorStyle.Render(fmt.Sprintf("Error: %v", m.err)))
 	} else if len(m.filteredItems) == 0 {
-		mainContent.WriteString(placeholder.Render("No stations found. Enter search and press Enter.") + "\n")
+		contentParts = append(contentParts, placeholder.Render("No stations found. Enter search and press Enter."))
 	} else {
-		sortLabels := map[SortMode]string{
-			SortByName:    "🅰️ Name (1)",
-			SortByBitrate: "🎵 Bitrate (2)",
-			SortByCountry: "🌍 Country (3)",
-		}
-		sortLabel := fmt.Sprintf("Sorted by: %s", sortLabels[m.currentSort])
-		mainContent.WriteString(sortLabelStyle.Padding(0, 1).Render(sortLabel) + "\n")
-
-		listView := lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			Padding(1, 2).
-			Width(m.list.Width()).
-			Height(m.list.Height()).
-			Render(m.list.View())
-		mainContent.WriteString(listView + "\n")
-
-		mainContent.WriteString(positionStyle.Render(fmt.Sprintf("Station %d of %d", m.list.Index()+1, len(m.filteredItems))) + "\n")
+		// Сортировка больше не отображается
+		contentParts = append(contentParts, lipgloss.NewStyle().PaddingTop(1).Render(m.list.View()))
+		contentParts = append(contentParts, positionStyle.Render(fmt.Sprintf("Station %d of %d", m.list.Index()+1, len(m.filteredItems))))
 	}
+
+	mainContent := lipgloss.JoinVertical(lipgloss.Left, contentParts...)
 
 	contentRow := lipgloss.NewStyle().
-		Padding(0, 2).
-		BorderTop(true).
-		BorderLeft(true).
-		BorderRight(true).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("#666666")).
-		Render(mainContent.String())
+		Padding(1, 2).
+		Render(mainContent)
 
-	var footer string
-	if m.playing != nil {
-		favIcon := "☆"
-		if m.storage.IsFavorite(m.playing.URL) {
-			favIcon = "⭐"
-		}
-
-		playerInfo := fmt.Sprintf(
-			"▶️  🎧 %s (%s) • %dkbps • Favorite: %s",
-			m.playing.Name,
-			m.playing.Country,
-			m.playing.Bitrate,
-			favIcon,
-		)
-
-		footerStyle := lipgloss.NewStyle().
-			BorderTop(true).
-			BorderForeground(lipgloss.Color("#5FD3F3")).
-			Padding(1, 2).
-			Width(m.Width).
-			Foreground(lipgloss.Color("#FFFFFF")).
-			Background(lipgloss.AdaptiveColor{
-				Light: "#A6CEE3",
-				Dark:  "#1B2B34",
-			})
-
-		footer = footerStyle.Render(playerInfo)
-	} else {
-		footer = lipgloss.NewStyle().
-			BorderTop(true).
-			BorderForeground(lipgloss.Color("#666666")).
-			Padding(1, 2).
-			Width(m.Width).
-			Render("⏸️  No station playing")
-	}
+	footer := m.renderPlayer()
 
 	help := helpStyle.Render("Tab: toggle search • Enter: play/search • s: stop • a: toggle favorite • z: show favorites • 1/2/3: sort • Esc/Ctrl+C: quit")
 
@@ -461,6 +479,16 @@ func (m *UIModel) View() string {
 		footer,
 		help,
 	)
+}
+
+func truncateText(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen > 3 {
+		return s[:maxLen-3] + "..."
+	}
+	return s[:maxLen]
 }
 
 func colorTags(tags []string) string {

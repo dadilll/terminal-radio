@@ -1,10 +1,4 @@
-{"level":"info","time":1748629240,"message":"Logger initialized"}
-{"level":"info","time":1748629240,"message":"Favorites file found: ./jsonfile/favorites.json"}
-{"level":"info","time":1748629240,"message":"Storage loaded from ./jsonfile/favorites.json successfully"}
-{"level":"info","time":1748629240,"message":"Storage loaded from ./jsonfile/favorites.json successfully"}
-{"level":"info","url":"https://i9.streams.ovh:2199/tunein/rockacesradio-stream.pls","time":1748629248,"message":"started playing"}
-{"level":"info","time":1748629251,"message":"Storage saved successfully with 4 favorites"}
-{"level":"info","time":1748629251,"message":"Storage saved successfully with 3 favorites"}
-{"level":"debug","time":1748629253,"message":"player stopped for restart"}
-{"level":"info","time":1748629253,"message":"player stopped"}
-{"level":"info","url":"https://lightning-now90s-samsungnz.amagi.tv/playlist.m3u8","time":1748629253,"message":"started playing"}
+{"level":"info","time":1748693363,"message":"Logger initialized"}
+{"level":"info","time":1748693363,"message":"Favorites file found: ./jsonfile/favorites.json"}
+{"level":"info","time":1748693363,"message":"Storage loaded from ./jsonfile/favorites.json successfully"}
+{"level":"info","time":1748693363,"message":"Storage loaded from ./jsonfile/favorites.json successfully"}
