@@ -33,16 +33,17 @@ make run
 
 ## 🧭 Controls
 
-| Keys        | Action |
-|-------------|--------:|
-| Tab         |      Toggle search bar | 
-| Enter       |      Search or play selected station |
-| s           |      Stop playback | 
-| 1           |      Sort by name |     
-| 2           |      Sort by bitrate | 
-| 3           |      Sort by country |
-| Esc, Ctrl+C |      Quit |     
-
+| Action                          |            Keys |
+|---------------------------------|----------------:|
+| Toggle search bar               |             Tab | 
+| Search or play selected station |           Enter |
+| Stop playback                   |               s | 
+| Sort by name                    |               1 |     
+| Sort by bitrate                 |               2 | 
+| Sort by country                 |               3 |
+| Favorites stations list         |               z |     
+| Add favorites stations          |               a |     
+| Quit                            |     Esc, Ctrl+C |  
 
 ## 📺 Demo
 
@@ -55,4 +56,4 @@ make run
 
 ## ✅ TODO list
 - [ ] Random station playback 
-- [ ] Favorite stations support
+- [X] Favorite stations support
