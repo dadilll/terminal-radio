@@ -90,41 +90,41 @@ type UIModel struct {
 
 var (
 	titleStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#FFA500")).
-		Padding(0, 2).
-		Background(lipgloss.Color("#1B1B1B"))
+			Bold(true).
+			Foreground(lipgloss.Color("#FFA500")).
+			Padding(0, 2).
+			Background(lipgloss.Color("#1B1B1B"))
 
 	loadingStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#00FFFF")).
-		Bold(true)
+			Foreground(lipgloss.Color("#00FFFF")).
+			Bold(true)
 
 	errorStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FF3333")).
-		Bold(true)
+			Foreground(lipgloss.Color("#FF3333")).
+			Bold(true)
 
 	placeholder = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#666666")).
-		Italic(true)
+			Foreground(lipgloss.Color("#666666")).
+			Italic(true)
 
 	nowPlayingStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#00FF00")).
-		Padding(0, 1).
-		Background(lipgloss.Color("#0B3D0B"))
+			Bold(true).
+			Foreground(lipgloss.Color("#00FF00")).
+			Padding(0, 1).
+			Background(lipgloss.Color("#0B3D0B"))
 
 	helpStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#888888")).
-		Italic(true)
+			Foreground(lipgloss.Color("#888888")).
+			Italic(true)
 
 	positionStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#AAAAAA")).
-		Italic(true)
+			Foreground(lipgloss.Color("#AAAAAA")).
+			Italic(true)
 
 	sortLabelStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#999999")).
-		Italic(true).
-		Padding(0, 1)
+			Foreground(lipgloss.Color("#999999")).
+			Italic(true).
+			Padding(0, 1)
 
 	tagColors = []lipgloss.Color{"#FF6B6B", "#6BCB77", "#4D96FF", "#FFD93D", "#C77DFF"}
 )
@@ -222,12 +222,7 @@ func (m *UIModel) sortStations(stations *[]api.Station) {
 }
 
 func (m *UIModel) showFavorites() {
-	var favStations []api.Station
-	for _, s := range m.allStations {
-		if m.storage.IsFavorite(s.URL) {
-			favStations = append(favStations, s)
-		}
-	}
+	favStations := m.storage.ListFavorites()
 	m.favoriteStations = favStations
 	m.sortStations(&favStations)
 
@@ -287,11 +282,11 @@ func (m *UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "a":
 			if item, ok := m.list.SelectedItem().(StationItem); ok {
-				id := item.Station.URL
-				if m.storage.IsFavorite(id) {
-					_ = m.storage.RemoveFavorite(id)
+				station := item.Station
+				if m.storage.IsFavorite(station.URL) {
+					_ = m.storage.RemoveFavorite(station.URL)
 				} else {
-					_ = m.storage.AddFavorite(id)
+					_ = m.storage.AddFavorite(station)
 				}
 				if m.favoritesMode {
 					m.showFavorites()

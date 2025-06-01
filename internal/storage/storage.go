@@ -3,19 +3,28 @@ package storage
 import (
 	"encoding/json"
 	"os"
+	"radio/internal/api"
 	"radio/pkg/logger"
 	"sync"
 )
 
 type Storage struct {
-	Favorites map[string]bool `json:"favorites"`
+	Favorites map[string]FavoriteStation `json:"favorites"`
 	path      string
 	mu        sync.Mutex
 }
 
+type FavoriteStation struct {
+	URL     string `json:"url"`
+	Name    string `json:"name"`
+	Bitrate int    `json:"bitrate"`
+	Country string `json:"country"`
+	Tags    string `json:"tags"`
+}
+
 func NewStorage(path string) (*Storage, error) {
 	s := &Storage{
-		Favorites: make(map[string]bool),
+		Favorites: make(map[string]FavoriteStation),
 		path:      path,
 	}
 
@@ -45,12 +54,12 @@ func (s *Storage) load() error {
 
 	if len(data) == 0 {
 		logger.Log.Warn().Msgf("Storage file %s is empty, initializing with empty favorites", s.path)
-		s.Favorites = make(map[string]bool)
+		s.Favorites = make(map[string]FavoriteStation)
 		return nil
 	}
 
 	var tmp struct {
-		Favorites map[string]bool `json:"favorites"`
+		Favorites map[string]FavoriteStation `json:"favorites"`
 	}
 
 	if err := json.Unmarshal(data, &tmp); err != nil {
@@ -65,11 +74,9 @@ func (s *Storage) load() error {
 }
 
 func (s *Storage) save() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+	// Предполагается, что вызывающий уже захватил s.mu
 	data, err := json.MarshalIndent(struct {
-		Favorites map[string]bool `json:"favorites"`
+		Favorites map[string]FavoriteStation `json:"favorites"`
 	}{
 		Favorites: s.Favorites,
 	}, "", "  ")
@@ -87,24 +94,49 @@ func (s *Storage) save() error {
 	return nil
 }
 
-func (s *Storage) AddFavorite(stationID string) error {
-	s.Favorites[stationID] = true
-	return s.save()
-}
+func (s *Storage) AddFavorite(station api.Station) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-func (s *Storage) RemoveFavorite(stationID string) error {
-	delete(s.Favorites, stationID)
-	return s.save()
-}
-
-func (s *Storage) IsFavorite(stationID string) bool {
-	return s.Favorites[stationID]
-}
-
-func (s *Storage) ListFavorites() []string {
-	favs := make([]string, 0, len(s.Favorites))
-	for id := range s.Favorites {
-		favs = append(favs, id)
+	s.Favorites[station.URL] = FavoriteStation{
+		URL:     station.URL,
+		Name:    station.Name,
+		Bitrate: station.Bitrate,
+		Country: station.Country,
+		Tags:    station.Tags,
 	}
-	return favs
+	return s.save()
+}
+
+func (s *Storage) RemoveFavorite(url string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	delete(s.Favorites, url)
+	return s.save()
+}
+
+func (s *Storage) IsFavorite(url string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, exists := s.Favorites[url]
+	return exists
+}
+
+func (s *Storage) ListFavorites() []api.Station {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	stations := make([]api.Station, 0, len(s.Favorites))
+	for _, fav := range s.Favorites {
+		stations = append(stations, api.Station{
+			URL:     fav.URL,
+			Name:    fav.Name,
+			Bitrate: fav.Bitrate,
+			Country: fav.Country,
+			Tags:    fav.Tags,
+		})
+	}
+	return stations
 }
