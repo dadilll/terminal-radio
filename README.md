@@ -27,7 +27,6 @@
 ## 🛠️ Installation
 ```bash
 git clone https://github.com/dadilll/terminal-radio.git
-cd terminal-radio
 make build
 make run
 ```
@@ -56,4 +55,4 @@ make run
 
 ## ✅ TODO list
 - [ ] Random station playback 
-- [ ] Favorite stations support
+- [X] Favorite stations support

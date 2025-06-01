@@ -4,6 +4,8 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"radio/internal/storage"
 	"runtime"
 	"time"
 
@@ -34,13 +36,33 @@ func main() {
 	logger.Init()
 	logger.Log.Info().Msg("Logger initialized")
 
-	// Обработка SIGINT (Ctrl+C)
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt)
 
 	client := api.NewClient("", 10*time.Second)
 	pl := player.New()
-	m := ui.NewUIModel(client, pl)
+
+	storagePath := "./jsonfile/favorites.json"
+
+	storageDir := filepath.Dir(storagePath)
+	if err := os.MkdirAll(storageDir, os.ModePerm); err != nil {
+		logger.Log.Fatal().Err(err).Msg("Failed to create storage directory")
+	}
+
+	if _, err := os.Stat(storagePath); os.IsNotExist(err) {
+		logger.Log.Warn().Msgf("Favorites file does not exist: %s, will be created on save", storagePath)
+	} else if err != nil {
+		logger.Log.Error().Err(err).Msgf("Error checking favorites file: %s", storagePath)
+	} else {
+		logger.Log.Info().Msgf("Favorites file found: %s", storagePath)
+	}
+
+	stor, err := storage.NewStorage(storagePath)
+	if err != nil {
+		logger.Log.Fatal().Err(err).Msg("Failed to initialize storage")
+	}
+
+	m := ui.NewUIModel(client, pl, stor)
 	p := tea.NewProgram(m)
 
 	go func() {
