@@ -42,7 +42,8 @@ make run
 | 1           |      Sort by name |     
 | 2           |      Sort by bitrate | 
 | 3           |      Sort by country |
-| Esc, Ctrl+C |      Quit |     
+| Esc, Ctrl+C |      Quit |  
+| []          | Switching time|
 
 
 ## 📺 Demo
@@ -55,5 +56,5 @@ make run
 - #### mpv must be installed separately
 
 ## ✅ TODO list
-- [ ] Random station playback 
+- [X] Random station playback 
 - [X] Favorite stations support
