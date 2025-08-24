@@ -43,7 +43,8 @@ make run
 | 2           |      Sort by bitrate | 
 | 3           |      Sort by country |
 | Esc, Ctrl+C |      Quit |     
-|  []         | Switching time |
+
+
 ## 📺 Demo
 
 ![](Docs/img.png)
