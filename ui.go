@@ -3,7 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
-	"radio/internal/api"
+	"radio/internal/client"
 	"radio/internal/player"
 	"radio/internal/storage"
 	"sort"
@@ -18,7 +18,7 @@ import (
 )
 
 type StationItem struct {
-	Station  api.Station
+	Station  client.Station
 	Playing  bool
 	Favorite bool
 }
@@ -65,20 +65,20 @@ type UIModel struct {
 	isPlaying        bool
 	playbackProgress float64
 	playerTicker     *time.Ticker
-	favoriteStations []api.Station
+	favoriteStations []client.Station
 	storage          *storage.Storage
 	favoritesMode    bool
 	list             list.Model
 	textinput        textinput.Model
 	spinner          spinner.Model
-	allStations      []api.Station
+	allStations      []client.Station
 	filteredItems    []list.Item
 	loading          bool
 	err              error
-	playing          *api.Station
+	playing          *client.Station
 	ctx              context.Context
 	cancel           context.CancelFunc
-	client           *api.Client
+	client           *client.Client
 	player           *player.Player
 	lastInputTime    time.Time
 	searchVisible    bool
@@ -90,46 +90,46 @@ type UIModel struct {
 
 var (
 	titleStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#FFA500")).
-		Padding(0, 2).
-		Background(lipgloss.Color("#1B1B1B"))
+			Bold(true).
+			Foreground(lipgloss.Color("#FFA500")).
+			Padding(0, 2).
+			Background(lipgloss.Color("#1B1B1B"))
 
 	loadingStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#00FFFF")).
-		Bold(true)
+			Foreground(lipgloss.Color("#00FFFF")).
+			Bold(true)
 
 	errorStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#FF3333")).
-		Bold(true)
+			Foreground(lipgloss.Color("#FF3333")).
+			Bold(true)
 
 	placeholder = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#666666")).
-		Italic(true)
+			Foreground(lipgloss.Color("#666666")).
+			Italic(true)
 
 	nowPlayingStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#00FF00")).
-		Padding(0, 1).
-		Background(lipgloss.Color("#0B3D0B"))
+			Bold(true).
+			Foreground(lipgloss.Color("#00FF00")).
+			Padding(0, 1).
+			Background(lipgloss.Color("#0B3D0B"))
 
 	helpStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#888888")).
-		Italic(true)
+			Foreground(lipgloss.Color("#888888")).
+			Italic(true)
 
 	positionStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#AAAAAA")).
-		Italic(true)
+			Foreground(lipgloss.Color("#AAAAAA")).
+			Italic(true)
 
 	sortLabelStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#999999")).
-		Italic(true).
-		Padding(0, 1)
+			Foreground(lipgloss.Color("#999999")).
+			Italic(true).
+			Padding(0, 1)
 
 	tagColors = []lipgloss.Color{"#FF6B6B", "#6BCB77", "#4D96FF", "#FFD93D", "#C77DFF"}
 )
 
-func NewUIModel(client *api.Client, player *player.Player, storage *storage.Storage) *UIModel {
+func NewUIModel(client *client.Client, player *player.Player, storage *storage.Storage) *UIModel {
 	ti := textinput.New()
 	ti.Placeholder = "Search stations"
 	ti.CharLimit = 100
@@ -167,12 +167,12 @@ func (m *UIModel) Init() tea.Cmd {
 	return tea.Batch(textinput.Blink, m.spinner.Tick)
 }
 
-type searchMsg []api.Station
+type searchMsg []client.Station
 type errMsg error
 
 func searchStations(ctx context.Context, query string) tea.Cmd {
 	return func() tea.Msg {
-		client := api.NewClient("", 10*time.Second)
+		client := client.NewClient("", 10*time.Second)
 		stations, err := client.SearchStations(ctx, query)
 		if err != nil {
 			return errMsg(err)
@@ -184,14 +184,14 @@ func searchStations(ctx context.Context, query string) tea.Cmd {
 func (m *UIModel) filterStations(query string) {
 	query = strings.ToLower(query)
 
-	var base []api.Station
+	var base []client.Station
 	if m.favoritesMode {
 		base = m.favoriteStations
 	} else {
 		base = m.allStations
 	}
 
-	var filtered []api.Station
+	var filtered []client.Station
 	for _, s := range base {
 		if strings.Contains(strings.ToLower(s.Name), query) {
 			filtered = append(filtered, s)
@@ -215,7 +215,7 @@ func (m *UIModel) filterStations(query string) {
 	m.list.Title = "📻 Radio Stations"
 }
 
-func (m *UIModel) sortStations(stations *[]api.Station) {
+func (m *UIModel) sortStations(stations *[]client.Station) {
 	switch m.currentSort {
 	case SortByBitrate:
 		sort.Slice(*stations, func(i, j int) bool {
@@ -356,7 +356,7 @@ func (m *UIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case searchMsg:
 		m.loading = false
 		m.err = nil
-		m.allStations = []api.Station(msg)
+		m.allStations = []client.Station(msg)
 		m.filterStations(m.textinput.Value())
 
 	case errMsg:
