@@ -5,13 +5,13 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"radio/internal/client"
+	"radio/internal/player"
 	"radio/internal/storage"
+	"radio/internal/ui"
 	"runtime"
 	"time"
 
-	"radio/internal/api"
-	"radio/internal/player"
-	"radio/internal/ui"
 	"radio/pkg/logger"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -39,11 +39,10 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt)
 
-	client := api.NewClient("", 10*time.Second)
+	client := client.NewClient("", 10*time.Second)
 	pl := player.New()
 
 	storagePath := "./jsonfile/favorites.json"
-
 	storageDir := filepath.Dir(storagePath)
 	if err := os.MkdirAll(storageDir, os.ModePerm); err != nil {
 		logger.Log.Fatal().Err(err).Msg("Failed to create storage directory")
@@ -62,7 +61,9 @@ func main() {
 		logger.Log.Fatal().Err(err).Msg("Failed to initialize storage")
 	}
 
+	// создаём UIModel
 	m := ui.NewUIModel(client, pl, stor)
+
 	p := tea.NewProgram(m)
 
 	go func() {

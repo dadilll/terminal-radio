@@ -3,7 +3,7 @@ package storage
 import (
 	"encoding/json"
 	"os"
-	"radio/internal/api"
+	"radio/internal/client"
 	"radio/pkg/logger"
 	"sync"
 )
@@ -74,7 +74,6 @@ func (s *Storage) load() error {
 }
 
 func (s *Storage) save() error {
-	// Предполагается, что вызывающий уже захватил s.mu
 	data, err := json.MarshalIndent(struct {
 		Favorites map[string]FavoriteStation `json:"favorites"`
 	}{
@@ -94,7 +93,7 @@ func (s *Storage) save() error {
 	return nil
 }
 
-func (s *Storage) AddFavorite(station api.Station) error {
+func (s *Storage) AddFavorite(station client.Station) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -124,13 +123,13 @@ func (s *Storage) IsFavorite(url string) bool {
 	return exists
 }
 
-func (s *Storage) ListFavorites() []api.Station {
+func (s *Storage) ListFavorites() []client.Station {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	stations := make([]api.Station, 0, len(s.Favorites))
+	stations := make([]client.Station, 0, len(s.Favorites))
 	for _, fav := range s.Favorites {
-		stations = append(stations, api.Station{
+		stations = append(stations, client.Station{
 			URL:     fav.URL,
 			Name:    fav.Name,
 			Bitrate: fav.Bitrate,

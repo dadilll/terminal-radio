@@ -36,7 +36,6 @@ func (p *Player) Play(ctx context.Context, streamURL string) error {
 		p.mu.Unlock()
 
 		_ = oldCmd.Process.Kill()
-
 		p.wg.Wait()
 
 		p.mu.Lock()
@@ -58,7 +57,6 @@ func (p *Player) Play(ctx context.Context, streamURL string) error {
 	p.cmd = cmd
 	p.running = true
 	p.wg.Add(1)
-
 	p.mu.Unlock()
 
 	go func() {
@@ -70,13 +68,14 @@ func (p *Player) Play(ctx context.Context, streamURL string) error {
 		if p.stopping {
 			logger.Log.Debug().Msg("player stopped for restart")
 		} else if err != nil {
-			logger.Log.Error().Err(err).Msg("player exited with error")
+			logger.Log.Error().Err(err).Msg("player crashed or exited with error")
 		} else {
 			logger.Log.Info().Msg("player finished normally")
 		}
 
 		p.running = false
 		p.cmd = nil
+		p.stopping = false
 	}()
 
 	logger.Log.Info().Str("url", streamURL).Msg("started playing")

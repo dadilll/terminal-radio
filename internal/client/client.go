@@ -1,4 +1,4 @@
-package api
+package client
 
 import (
 	"context"
@@ -30,6 +30,10 @@ type Client struct {
 	httpClient *http.Client
 }
 
+func (s Station) FilterValue() string {
+	return s.Name
+}
+
 func NewClient(baseURL string, timeout time.Duration) *Client {
 	if baseURL == "" {
 		baseURL = "https://de1.api.radio-browser.info/json"
@@ -53,12 +57,17 @@ func NewClient(baseURL string, timeout time.Duration) *Client {
 	}
 }
 
-func (c *Client) SearchStations(ctx context.Context, query string) ([]Station, error) {
-	if query == "" {
-		return nil, errors.New("query must not be empty")
+func (c *Client) SearchStations(ctx context.Context, filters map[string]string) ([]Station, error) {
+	if len(filters) == 0 {
+		return nil, errors.New("filters must not be empty")
 	}
 
-	endpoint := fmt.Sprintf("%s/stations/search?name=%s", c.baseURL, url.QueryEscape(query))
+	query := url.Values{}
+	for k, v := range filters {
+		query.Set(k, v)
+	}
+
+	endpoint := fmt.Sprintf("%s/stations/search?%s", c.baseURL, query.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)

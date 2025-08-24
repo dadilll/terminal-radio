@@ -1,4 +1,4 @@
-package api
+package client
 
 import (
 	"context"
@@ -27,7 +27,9 @@ func TestClient_SearchStations(t *testing.T) {
 		defer server.Close()
 
 		client := NewClient(server.URL, 5*time.Second)
-		stations, err := client.SearchStations(context.Background(), "rock")
+		stations, err := client.SearchStations(context.Background(), map[string]string{
+			"name": "rock",
+		})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -44,7 +46,7 @@ func TestClient_SearchStations(t *testing.T) {
 	// Пустой query
 	t.Run("empty query", func(t *testing.T) {
 		client := NewClient("http://example.com", 5*time.Second)
-		_, err := client.SearchStations(context.Background(), "")
+		_, err := client.SearchStations(context.Background(), map[string]string{})
 		if err == nil {
 			t.Fatal("expected error for empty query, got nil")
 		}
@@ -57,7 +59,9 @@ func TestClient_SearchStations(t *testing.T) {
 		defer server.Close()
 
 		client := NewClient(server.URL, 5*time.Second)
-		_, err := client.SearchStations(context.Background(), "rock")
+		_, err := client.SearchStations(context.Background(), map[string]string{
+			"name": "rock",
+		})
 		if err == nil {
 			t.Fatal("expected error for bad status, got nil")
 		}
@@ -72,7 +76,9 @@ func TestClient_SearchStations(t *testing.T) {
 		defer server.Close()
 
 		client := NewClient(server.URL, 5*time.Second)
-		_, err := client.SearchStations(context.Background(), "rock")
+		_, err := client.SearchStations(context.Background(), map[string]string{
+			"name": "rock",
+		})
 		if err == nil {
 			t.Fatal("expected error for invalid json, got nil")
 		}
@@ -80,7 +86,9 @@ func TestClient_SearchStations(t *testing.T) {
 
 	t.Run("request error", func(t *testing.T) {
 		client := NewClient("http://invalid-host", 1*time.Second)
-		_, err := client.SearchStations(context.Background(), "rock")
+		_, err := client.SearchStations(context.Background(), map[string]string{
+			"name": "rock",
+		})
 		if err == nil {
 			t.Fatal("expected error for request failure, got nil")
 		}
